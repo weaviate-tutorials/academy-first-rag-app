@@ -17,9 +17,6 @@ class CollectionName(str, Enum):
 def connect_to_weaviate() -> WeaviateClient:
     client = weaviate.connect_to_local(
         port=8080,
-        headers={
-            "X-COHERE-API-KEY": os.environ["COHERE_API_KEY"],
-        },
     )
     return client
 

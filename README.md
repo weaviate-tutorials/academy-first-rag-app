@@ -1,49 +1,31 @@
 ## Student scenario
 
-You are building an application for SupportMe, an online platform that aims to help online support agents. Your application should:
-- Identify common recent issues for each support account
-- For a topic, find related issues
-    - based on issues found, suggest what a support agent should say, or avoid saying
-    - identify how often they've been occurring
-    - if no account provided, identify common companies in the result set
-    - if account provided, show trends in similar topics by quarter
-- For an issue, show:
-    - Issue data
-    - AI summary
-    - Top n most similar issues
+You are building an application for MovieInsights, a platform that helps movie enthusiasts discover and analyze films. Your application should do the following:
+
+- Find films from a search string
+    - List 20 most relevant movies per page, up to 3 pages
+    - Allow optional year filters
+- For a movie, show:
+    - Movie data (title, release date, genre, etc.)
+    - Top 15 most similar movies
+- Explorer: Given a genre and optional release year, identify the most popular movies
+- Recommender: Given a viewing occasion, perform a search & recommend a movie from the database
 - Provide statistics on the dataset
-- Provide basic error handling
-    - 400 for missing issue or account
-    - 500 for internal errors
+    - Total object count; count by year
 
+### Learning objectives
 
-PROJECT TODO
-- recreate dataset with snowflake embeddings
-- set up app with weaviate embeddings + cloud / local + ollama
-- Sample answer FastAPI app
-    - Scaffold app; leave Weaviate functions for users to implement
-    - `/<account_name>`: n most common issues; UUID;
-    - `
+You will learn how to connect a FastAPI app to Weaviate to:
 
+- Implement hybrid search
+    - With pagination
+    - With filtering
+- View individual object data
+    - Perform a NearObject search
+- Sort filtered data
+- Perform retrieval augmented generation
+- Aggregate data
 
-- Get collection summary `/summary`
-    - Total count
-    - Counts by quarter
-    - Counts for top companies
-- n most recent issues `/recent`
-    - UUIDs
-    - Companies
-    - RAG summary
-- Summary for given account `/account_name/summary`
-    - Total count
-    - Latest count
-    - n latest issues
-    - RAG
-- Search results `/topics/<search_topic>`
-    -
-- Deep-dive into each conversation
-    - `/conversation/<id>`
-    - Details
-    - `/conversation/<id>/similar`
-        - Trends (counts by quarter)
-        -
+### Project outline
+
+You will be given a skeleton FastAPI-based application,
