@@ -67,7 +67,7 @@ class StatsResponse(BaseModel):
 async def root():
     """Root endpoint with API information"""
     return {
-        "message": "MovieInsights API",
+        "message": "MovieInsights API - Powered by Weaviate",
         "version": "1.0.0",
         "endpoints": [
             "/search - Search movies by text",
@@ -135,8 +135,8 @@ async def search_movies(
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-@app.get("/movie/{movie_uuid}", response_model=MovieDetailResponse)
-async def get_movie_details(movie_uuid: str):
+@app.get("/movie/{movie_id}", response_model=MovieDetailResponse)
+async def get_movie_details(movie_id: str):
     """
     Get detailed information about a specific movie, using the Weaviate object UUID
     - Returns movie metadata
@@ -149,7 +149,10 @@ async def get_movie_details(movie_uuid: str):
         # - Limit to top n results
         with connect_to_weaviate() as client:
             movies = client.collections.get(CollectionName.MOVIES)
-            movie = movies.query.fetch_object_by_id(movie_uuid)
+            movie = movies.query.fetch_objects(
+                filters=Filter.by_property("movie_id").equal(movie_id),
+                limit=1
+            ).objects[0]
 
             response = movies.query.near_object(near_object=movie.uuid, limit=PAGE_SIZE)
             similar_movies = [o.properties for o in response.objects]
@@ -295,7 +298,7 @@ async def get_dataset_stats():
     - Count by year
     """
     try:
-        # TODO: Students implement here
+        # TODO: Students to implement:
         # - Use Weaviate aggregation queries
         # - Get total count
         # - Group by year for time-based analysis
