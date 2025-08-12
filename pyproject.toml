@@ -13,5 +13,6 @@ dependencies = [
     "pyarrow>=21.0.0",
     "python-dotenv>=1.1.1",
     "tqdm>=4.67.1",
+    "uvicorn>=0.35.0",
     "weaviate-client>=4.16.6",
 ]

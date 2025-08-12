@@ -4,8 +4,10 @@ from pydantic import BaseModel
 import weaviate
 from weaviate import WeaviateClient
 from weaviate.classes.query import Filter
-from datetime import datetime
+from datetime import datetime, timezone
 from helpers import connect_to_weaviate, CollectionName
+import uvicorn
+
 
 app = FastAPI(
     title="MovieInsights API",
@@ -16,15 +18,16 @@ app = FastAPI(
 
 # Pydantic models for request/response
 class Movie(BaseModel):
-    id: str
+    movie_id: int
     title: str
-    release_date: str
-    genre: List[str]
-    director: str
-    cast: List[str]
-    plot: str
-    rating: float
-    studio: str
+    overview: Optional[str] = None
+    genres: Optional[List[str]] = None
+    keywords: Optional[List[str]] = None
+    credits: Optional[List[str]] = None
+    budget: int
+    revenue: int
+    vote_average: float
+    release_date: Optional[datetime] = None
 
 
 class SearchResponse(BaseModel):
@@ -79,8 +82,12 @@ async def root():
 async def search_movies(
     q: str = Query(..., description="Search query for movies"),
     page: int = Query(1, ge=1, le=3, description="Page number (1-3)"),
-    year_min: Optional[int] = Query(None, description="Filter by release year - from this year"),
-    year_max: Optional[int] = Query(None, description="Filter by release year - to this year"),
+    year_min: Optional[int] = Query(
+        None, description="Filter by release year - from this year"
+    ),
+    year_max: Optional[int] = Query(
+        None, description="Filter by release year - to this year"
+    ),
 ):
     """
     Search for movies using hybrid search (vector + BM25)
@@ -100,13 +107,19 @@ async def search_movies(
 
         filters = None
         if year_min and year_max:
-            filters = (Filter.by_property("release_year").greater_or_equal(year_min) &
-                       Filter.by_property("release_year").less_or_equal(year_max))
+            filters = Filter.by_property("release_date").greater_or_equal(
+                datetime(year=year_min, month=1, day=1).replace(tzinfo=timezone.utc)
+            ) & Filter.by_property("release_date").less_or_equal(
+                datetime(year=year_max, month=12, day=31).replace(tzinfo=timezone.utc)
+            )
         elif year_min:
-            filters = Filter.by_property("release_year").greater_or_equal(year_min)
+            filters = Filter.by_property("release_date").greater_or_equal(
+                datetime(year=year_min, month=1, day=1).replace(tzinfo=timezone.utc)
+            )
         elif year_max:
-            filters = Filter.by_property("release_year").less_or_equal(year_max)
-
+            filters = Filter.by_property("release_date").less_or_equal(
+                datetime(year=year_max, month=12, day=31).replace(tzinfo=timezone.utc)
+            )
 
         with connect_to_weaviate() as client:
             movies = client.collections.get(CollectionName.MOVIES)
@@ -114,19 +127,16 @@ async def search_movies(
                 query=q,
                 offset=offset,
                 limit=page_size,
-                filters=filters
+                filters=filters,
+                target_vector="default"
             )
 
             return SearchResponse(
-                movies=[o.properties for o in response.objects],  # Convert response.objects to Movie models
+                movies=[
+                    o.properties for o in response.objects
+                ],  # Convert response.objects to Movie models
                 current_page=page,
             )
-
-        # # Placeholder response
-        # raise HTTPException(
-        #     status_code=501,
-        #     detail="Search functionality not implemented yet. Students need to implement Weaviate hybrid search.",
-        # )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
@@ -234,6 +244,6 @@ async def get_dataset_stats():
 
 
 if __name__ == "__main__":
-    import uvicorn
+
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
