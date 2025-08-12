@@ -11,7 +11,7 @@ import uvicorn
 app = FastAPI(
     title="MovieInsights API",
     description="A movie discovery and recommendation platform using Weaviate",
-    version="1.0.0",
+    version="0.1.0",
 )
 
 PAGE_SIZE = 20
@@ -123,7 +123,7 @@ async def search_movies(
                 offset=offset,
                 limit=PAGE_SIZE,
                 filters=filters,
-                target_vector="default"
+                target_vector="default",
             )
 
             return SearchResponse(
@@ -151,15 +151,11 @@ async def get_movie_details(movie_uuid: str):
             movies = client.collections.get(CollectionName.MOVIES)
             movie = movies.query.fetch_object_by_id(movie_uuid)
 
-            response = movies.query.near_object(
-                near_object=movie.uuid,
-                limit=PAGE_SIZE
-            )
+            response = movies.query.near_object(near_object=movie.uuid, limit=PAGE_SIZE)
             similar_movies = [o.properties for o in response.objects]
 
         return MovieDetailResponse(
-            movie=movie.properties,
-            similar_movies=similar_movies
+            movie=movie.properties, similar_movies=similar_movies
         )
 
     except Exception as e:
@@ -194,7 +190,9 @@ async def explore_movies(
                 year_filters = Filter.by_property("release_date").greater_or_equal(
                     datetime(year=year_min, month=1, day=1).replace(tzinfo=timezone.utc)
                 ) & Filter.by_property("release_date").less_or_equal(
-                    datetime(year=year_max, month=12, day=31).replace(tzinfo=timezone.utc)
+                    datetime(year=year_max, month=12, day=31).replace(
+                        tzinfo=timezone.utc
+                    )
                 )
             elif year_min:
                 year_filters = Filter.by_property("release_date").greater_or_equal(
@@ -202,7 +200,9 @@ async def explore_movies(
                 )
             elif year_max:
                 year_filters = Filter.by_property("release_date").less_or_equal(
-                    datetime(year=year_max, month=12, day=31).replace(tzinfo=timezone.utc)
+                    datetime(year=year_max, month=12, day=31).replace(
+                        tzinfo=timezone.utc
+                    )
                 )
             else:
                 year_filters = None
@@ -223,7 +223,7 @@ async def explore_movies(
                 """,
                 generative_provider=GenerativeConfig.anthropic(
                     model="claude-3-5-haiku-latest"
-                )
+                ),
             )
 
         return ExplorerResponse(
@@ -231,7 +231,7 @@ async def explore_movies(
             ai_suggestions=response.generative.text,
             genre=genre,
             year_min=year_min,
-            year_max=year_max
+            year_max=year_max,
         )
 
     except Exception as e:
@@ -274,13 +274,13 @@ async def recommend_movie(
                 """,
                 generative_provider=GenerativeConfig.anthropic(
                     model="claude-3-5-haiku-latest"
-                )
+                ),
             )
 
         return RecommendationResponse(
             recommendation=response.generative.text,
             query_string=query_string,
-            movies_considered=[o.properties for o in response.objects]
+            movies_considered=[o.properties for o in response.objects],
         )
 
     except Exception as e:
@@ -305,14 +305,20 @@ async def get_dataset_stats():
             movies_by_genres = movies.aggregate.over_all(
                 group_by=GroupByAggregate(prop="genres")
             )
-            oldest_movie = movies.query.fetch_objects(limit=1, sort=Sort.by_property("release_date", ascending=True)).objects[0]
-            latest_movie = movies.query.fetch_objects(limit=1, sort=Sort.by_property("release_date", ascending=False)).objects[0]
+            oldest_movie = movies.query.fetch_objects(
+                limit=1, sort=Sort.by_property("release_date", ascending=True)
+            ).objects[0]
+            latest_movie = movies.query.fetch_objects(
+                limit=1, sort=Sort.by_property("release_date", ascending=False)
+            ).objects[0]
 
         return StatsResponse(
             total_movies=len(total_count),
-            movies_by_genres=[{g.grouped_by.value: g.total_count} for g in movies_by_genres.groups],
+            movies_by_genres=[
+                {g.grouped_by.value: g.total_count} for g in movies_by_genres.groups
+            ],
             oldest_movie=oldest_movie,
-            latest_movie=latest_movie
+            latest_movie=latest_movie,
         )
 
     except Exception as e:
@@ -320,6 +326,5 @@ async def get_dataset_stats():
 
 
 if __name__ == "__main__":
-
 
     uvicorn.run(app, host="0.0.0.0", port=8000)

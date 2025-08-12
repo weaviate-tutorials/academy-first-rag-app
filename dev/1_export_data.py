@@ -12,10 +12,7 @@ counter = 0
 batch_number = 0
 
 for o in c.iterator(include_vector=True):
-    tmp_obj = {
-        "properties": o.properties,
-        "vectors": o.vector
-    }
+    tmp_obj = {"properties": o.properties, "vectors": o.vector}
     buffer.append(tmp_obj)
     counter += 1
 
@@ -38,4 +35,6 @@ if buffer:
     print(f"Saved {len(buffer)} records to {filename}")
 
 client.close()
-print(f"Total exported: {counter} records in {batch_number + (1 if buffer else 0)} batches")
+print(
+    f"Total exported: {counter} records in {batch_number + (1 if buffer else 0)} batches"
+)

@@ -36,7 +36,9 @@ def get_data_objects() -> Iterator[Dict[str, Union[datetime, str, int]]]:
         if item["release_date"] == None:
             release_date = None
         else:
-            release_date = datetime.strptime(item["release_date"], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            release_date = datetime.strptime(item["release_date"], "%Y-%m-%d").replace(
+                tzinfo=timezone.utc
+            )
 
         yield {
             "title": item["title"],

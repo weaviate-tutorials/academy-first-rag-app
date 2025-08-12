@@ -64,7 +64,6 @@ def import_from_hdf5(file_path: str):
                             vector_name = key.split("_", 1)[1]
                             vectors[vector_name] = np.asarray(group[key])
 
-
                     # Add the object to the batch
                     batch.add_object(
                         collection=CollectionName.SUPPORTCHAT,

@@ -29,7 +29,9 @@ def get_data_objects_from_parquet() -> Iterator[Dict[str, Union[datetime, str, i
             elif isinstance(release_date, str):
                 # Fallback: if it's still a string, parse it
                 try:
-                    release_date = datetime.strptime(release_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    release_date = datetime.strptime(release_date, "%Y-%m-%d").replace(
+                        tzinfo=timezone.utc
+                    )
                 except ValueError:
                     release_date = None
             elif isinstance(release_date, datetime):
@@ -46,7 +48,9 @@ def get_data_objects_from_parquet() -> Iterator[Dict[str, Union[datetime, str, i
                 "credits": process_movie_categorical(row["credits"]),
                 "budget": int(row["budget"]) if pd.notna(row["budget"]) else 0,
                 "revenue": int(row["revenue"]) if pd.notna(row["revenue"]) else 0,
-                "vote_average": row["vote_average"] if pd.notna(row["vote_average"]) else 0.0,
+                "vote_average": (
+                    row["vote_average"] if pd.notna(row["vote_average"]) else 0.0
+                ),
                 "release_date": release_date,
             }
 
