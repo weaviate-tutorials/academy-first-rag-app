@@ -1,11 +1,10 @@
 from fastapi import FastAPI, HTTPException, Query
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict
 from pydantic import BaseModel
-import weaviate
-from weaviate import WeaviateClient
-from weaviate.classes.query import Filter
+from weaviate.classes.query import Filter, GenerativeConfig, Sort
+from weaviate.classes.aggregate import GroupByAggregate
 from datetime import datetime, timezone
-from helpers import connect_to_weaviate, CollectionName
+from helpers import connect_to_weaviate, CollectionName, movie_occasion_to_query
 import uvicorn
 
 
@@ -14,6 +13,8 @@ app = FastAPI(
     description="A movie discovery and recommendation platform using Weaviate",
     version="1.0.0",
 )
+
+PAGE_SIZE = 20
 
 
 # Pydantic models for request/response
@@ -43,23 +44,23 @@ class MovieDetailResponse(BaseModel):
 class ExplorerResponse(BaseModel):
     movies: List[Movie]
     genre: str
-    year: Optional[int]
-    total_count: int
+    year_min: Optional[int]
+    year_max: Optional[int]
+    ai_suggestions: str
 
 
 class RecommendationResponse(BaseModel):
-    recommended_movie: Movie
+    recommendation: str
+    query_string: str
+    movies_considered: List[Movie]
     occasion: str
-    reasoning: str
 
 
 class StatsResponse(BaseModel):
     total_movies: int
-    movies_by_year: Dict[int, int]
-
-
-# Weaviate client (placeholder - students need to implement connection)
-# client = weaviate.Client("http://localhost:8080")
+    movies_by_genres: Dict[str, int]
+    oldest_movie: Movie
+    most_recent_movie: Movie
 
 
 @app.get("/")
@@ -96,14 +97,8 @@ async def search_movies(
     - Optional year filtering
     """
     try:
-        # TODO: Students implement Weaviate hybrid search here
-        # - Use vector search for semantic similarity
-        # - Add BM25 for text relevance
-        # - Implement pagination (limit=20, offset based on page)
-        # - Add year filtering if provided
-        page_size = 20
         if page >= 1:
-            offset = page_size * (page - 1)
+            offset = PAGE_SIZE * (page - 1)
 
         filters = None
         if year_min and year_max:
@@ -126,15 +121,13 @@ async def search_movies(
             response = movies.query.hybrid(
                 query=q,
                 offset=offset,
-                limit=page_size,
+                limit=PAGE_SIZE,
                 filters=filters,
                 target_vector="default"
             )
 
             return SearchResponse(
-                movies=[
-                    o.properties for o in response.objects
-                ],  # Convert response.objects to Movie models
+                movies=[o.properties for o in response.objects],
                 current_page=page,
             )
 
@@ -142,10 +135,10 @@ async def search_movies(
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-@app.get("/movie/{movie_id}", response_model=MovieDetailResponse)
-async def get_movie_details(movie_id: str):
+@app.get("/movie/{movie_uuid}", response_model=MovieDetailResponse)
+async def get_movie_details(movie_uuid: str):
     """
-    Get detailed information about a specific movie
+    Get detailed information about a specific movie, using the Weaviate object UUID
     - Returns movie metadata
     - Returns top 15 most similar movies using NearObject search
     """
@@ -153,12 +146,20 @@ async def get_movie_details(movie_id: str):
         # TODO: Students implement here
         # - Fetch movie by ID from Weaviate
         # - Use nearObject search to find similar movies
-        # - Limit to top 15 results
+        # - Limit to top n results
+        with connect_to_weaviate() as client:
+            movies = client.collections.get(CollectionName.MOVIES)
+            movie = movies.query.fetch_object_by_id(movie_uuid)
 
-        # Placeholder response
-        raise HTTPException(
-            status_code=501,
-            detail="Movie details not implemented yet. Students need to implement Weaviate object retrieval and similarity search.",
+            response = movies.query.near_object(
+                near_object=movie.uuid,
+                limit=PAGE_SIZE
+            )
+            similar_movies = [o.properties for o in response.objects]
+
+        return MovieDetailResponse(
+            movie=movie.properties,
+            similar_movies=similar_movies
         )
 
     except Exception as e:
@@ -168,24 +169,69 @@ async def get_movie_details(movie_id: str):
 @app.get("/explore", response_model=ExplorerResponse)
 async def explore_movies(
     genre: str = Query(..., description="Movie genre to explore"),
-    year: Optional[int] = Query(None, description="Filter by release year"),
+    year_min: Optional[int] = Query(
+        None, description="Filter by release year - from this year"
+    ),
+    year_max: Optional[int] = Query(
+        None, description="Filter by release year - to this year"
+    ),
 ):
     """
     Explore movies by genre and optional year
     - Returns most popular movies in the specified genre
     - Can filter by year
     - Sorted by popularity/rating
+    - Include AI-generated suggestions
     """
     try:
         # TODO: Students implement here
         # - Filter by genre and year using Weaviate filters
         # - Sort by popularity/rating
-        # - Use aggregation features if needed
+        with connect_to_weaviate() as client:
+            movies = client.collections.get(CollectionName.MOVIES)
+            genre_filter = Filter.by_property("genres").contains_any(genre)
+            if year_min and year_max:
+                year_filters = Filter.by_property("release_date").greater_or_equal(
+                    datetime(year=year_min, month=1, day=1).replace(tzinfo=timezone.utc)
+                ) & Filter.by_property("release_date").less_or_equal(
+                    datetime(year=year_max, month=12, day=31).replace(tzinfo=timezone.utc)
+                )
+            elif year_min:
+                year_filters = Filter.by_property("release_date").greater_or_equal(
+                    datetime(year=year_min, month=1, day=1).replace(tzinfo=timezone.utc)
+                )
+            elif year_max:
+                year_filters = Filter.by_property("release_date").less_or_equal(
+                    datetime(year=year_max, month=12, day=31).replace(tzinfo=timezone.utc)
+                )
+            else:
+                year_filters = None
 
-        # Placeholder response
-        raise HTTPException(
-            status_code=501,
-            detail="Explorer not implemented yet. Students need to implement Weaviate filtering and sorting.",
+            if year_filters:
+                filters = genre_filter & year_filters
+            else:
+                filters = genre_filter
+
+            response = movies.generate.fetch_objects(
+                filters=filters,
+                limit=PAGE_SIZE,
+                grouped_task=f"""
+                The user is interested in movies of genre: {genre} with option year criteria (min: {year_min} and max: {year_max}).
+                Based on these search results, recommend some movies,
+                with very brief, one-sentence maximum, reason for each one for the user.
+                Do not include any other text in the output.
+                """,
+                generative_provider=GenerativeConfig.anthropic(
+                    model="claude-3-5-haiku-latest"
+                )
+            )
+
+        return ExplorerResponse(
+            movies=[o.properties for o in response.objects],
+            ai_suggestions=response.generative.text,
+            genre=genre,
+            year_min=year_min,
+            year_max=year_max
         )
 
     except Exception as e:
@@ -200,7 +246,7 @@ async def recommend_movie(
 ):
     """
     Get movie recommendations based on viewing occasion
-    - Converts occasion to embedding
+    - Generates a query string from occasion
     - Performs semantic search against movie descriptions
     - Returns best match with reasoning
     """
@@ -209,11 +255,32 @@ async def recommend_movie(
         # - Convert occasion text to embedding
         # - Perform semantic search against movie plots/descriptions
         # - Return best match with explanation
+        query_string = movie_occasion_to_query(occasion=occasion)
 
-        # Placeholder response
-        raise HTTPException(
-            status_code=501,
-            detail="Recommender not implemented yet. Students need to implement semantic search with embeddings.",
+        with connect_to_weaviate() as client:
+            movies = client.collections.get(CollectionName.MOVIES)
+            response = movies.generate.near_text(
+                query=query_string,
+                limit=PAGE_SIZE,
+                grouped_task=f"""
+                The user is interested in movie recommendations for this occasion:
+                ========== OCCASION INPUT FROM USER ==========
+                {occasion}
+                ========== END INPUT ==========
+
+                Out of these movies, what would you recommend and why?
+
+                IMPORTANT: Only include the recommendation text in your response and nothing else.
+                """,
+                generative_provider=GenerativeConfig.anthropic(
+                    model="claude-3-5-haiku-latest"
+                )
+            )
+
+        return RecommendationResponse(
+            recommendation=response.generative.text,
+            query_string=query_string,
+            movies_considered=[o.properties for o in response.objects]
         )
 
     except Exception as e:
@@ -232,11 +299,20 @@ async def get_dataset_stats():
         # - Use Weaviate aggregation queries
         # - Get total count
         # - Group by year for time-based analysis
+        with connect_to_weaviate() as client:
+            movies = client.collections.get(CollectionName.MOVIES)
+            total_count = len(movies)
+            movies_by_genres = movies.aggregate.over_all(
+                group_by=GroupByAggregate(prop="genres")
+            )
+            oldest_movie = movies.query.fetch_objects(limit=1, sort=Sort.by_property("release_date", ascending=True)).objects[0]
+            latest_movie = movies.query.fetch_objects(limit=1, sort=Sort.by_property("release_date", ascending=False)).objects[0]
 
-        # Placeholder response
-        raise HTTPException(
-            status_code=501,
-            detail="Statistics not implemented yet. Students need to implement Weaviate aggregation queries.",
+        return StatsResponse(
+            total_movies=len(total_count),
+            movies_by_genres=[{g.grouped_by.value: g.total_count} for g in movies_by_genres.groups],
+            oldest_movie=oldest_movie,
+            latest_movie=latest_movie
         )
 
     except Exception as e:

@@ -38,12 +38,12 @@ def get_data_objects_from_parquet() -> Iterator[Dict[str, Union[datetime, str, i
                     release_date = release_date.replace(tzinfo=timezone.utc)
 
             yield {
+                "movie_id": row["id"],
                 "title": row["title"],
                 "overview": row["overview"],
                 "genres": process_movie_categorical(row["genres"]),
                 "keywords": process_movie_categorical(row["keywords"]),
                 "credits": process_movie_categorical(row["credits"]),
-                "movie_id": row["id"],
                 "budget": int(row["budget"]) if pd.notna(row["budget"]) else 0,
                 "revenue": int(row["revenue"]) if pd.notna(row["revenue"]) else 0,
                 "vote_average": row["vote_average"] if pd.notna(row["vote_average"]) else 0.0,

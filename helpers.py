@@ -1,6 +1,7 @@
 import weaviate
 from weaviate import WeaviateClient
 import os
+from anthropic import Anthropic
 from enum import Enum
 from datetime import datetime, timezone
 from collections.abc import Iterator
@@ -49,3 +50,36 @@ def get_data_objects() -> Iterator[Dict[str, Union[datetime, str, int]]]:
             "vote_average": item["vote_average"],
             "release_date": release_date,
         }
+
+
+def call_claude(prompt: str) -> str:
+
+    client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+    message = client.messages.create(
+        max_tokens=1024,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ],
+        model="claude-3-5-haiku-latest",
+    )
+    return message.content
+
+
+def movie_occasion_to_query(occasion: str) -> str:
+
+    prompt = f"""
+    I would like to perform a vector search to find movies best matching this occasion
+
+    ========== OCCASION INPUT FROM USER ==========
+    {occasion}
+    ========== END INPUT ==========
+
+    What should my search string be?
+
+    IMPORTANT: Only include the search string text in your response and nothing else.
+    """
+    return call_claude(prompt)
