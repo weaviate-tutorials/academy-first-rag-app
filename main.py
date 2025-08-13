@@ -46,7 +46,6 @@ class ExplorerResponse(BaseModel):
     genre: str
     year_min: Optional[int]
     year_max: Optional[int]
-    ai_suggestions: str
 
 
 class RecommendationResponse(BaseModel):
@@ -176,11 +175,10 @@ async def explore_movies(
     ),
 ):
     """
-    Explore movies by genre and optional year
-    - Returns most popular movies in the specified genre
+    Explore movies by genre(s) and optional year
+    - Returns most popular movies best matching the specified genre
     - Can filter by year
     - Sorted by popularity/rating
-    - Include AI-generated suggestions
     """
     try:
         # TODO: Students implement here
@@ -188,7 +186,7 @@ async def explore_movies(
         # - Sort by popularity/rating
         with connect_to_weaviate() as client:
             movies = client.collections.get(CollectionName.MOVIES)
-            genre_filter = Filter.by_property("genres").contains_any(genre)
+
             if year_min and year_max:
                 year_filters = Filter.by_property("release_date").greater_or_equal(
                     datetime(year=year_min, month=1, day=1).replace(tzinfo=timezone.utc)
@@ -210,28 +208,15 @@ async def explore_movies(
             else:
                 year_filters = None
 
-            if year_filters:
-                filters = genre_filter & year_filters
-            else:
-                filters = genre_filter
-
-            response = movies.generate.fetch_objects(
-                filters=filters,
+            response = movies.query.hybrid(
+                query=genre,
+                filters=year_filters,
                 limit=PAGE_SIZE,
-                grouped_task=f"""
-                The user is interested in movies of genre: {genre} with option year criteria (min: {year_min} and max: {year_max}).
-                Based on these search results, recommend some movies,
-                with very brief, one-sentence maximum, reason for each one for the user.
-                Do not include any other text in the output.
-                """,
-                generative_provider=GenerativeConfig.anthropic(
-                    model="claude-3-5-haiku-latest"
-                ),
             )
+            movies = sorted([o.properties for o in response.objects], key=lambda x: x["popularity"], reverse=True)
 
         return ExplorerResponse(
-            movies=[o.properties for o in response.objects],
-            ai_suggestions=response.generative.text,
+            movies=movies,
             genre=genre,
             year_min=year_min,
             year_max=year_max,
