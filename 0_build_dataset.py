@@ -1,4 +1,4 @@
-from ..helpers import CollectionName
+from helpers import CollectionName, process_str_categorical, process_int_categorical
 from weaviate.util import generate_uuid5
 from weaviate.classes.config import Property, DataType, Configure, Tokenization
 from tqdm import tqdm
@@ -11,7 +11,6 @@ from typing import Iterator, Dict, Union
 
 def get_data_objects_from_parquet() -> Iterator[Dict[str, Union[datetime, str, int]]]:
     """Load movie data from parquet files instead of streaming dataset."""
-    from helpers import process_movie_categorical
 
     # Find all parquet files in the data directory
     parquet_files = glob.glob("data/movies_top1000_by_year_chunk_*.parquet")
@@ -43,14 +42,21 @@ def get_data_objects_from_parquet() -> Iterator[Dict[str, Union[datetime, str, i
                 "movie_id": row["id"],
                 "title": row["title"],
                 "overview": row["overview"],
-                "genres": process_movie_categorical(row["genres"]),
-                "keywords": process_movie_categorical(row["keywords"]),
-                "credits": process_movie_categorical(row["credits"]),
+                "original_language": row["original_language"],
+                "tagline": row["tagline"],
+                "poster_path": row["poster_path"],
+                "genres": process_str_categorical(row["genres"]),
+                "keywords": process_str_categorical(row["keywords"]),
+                "credits": process_str_categorical(row["credits"]),
+                "recommendations": process_int_categorical(row["recommendations"]),
                 "budget": int(row["budget"]) if pd.notna(row["budget"]) else 0,
                 "revenue": int(row["revenue"]) if pd.notna(row["revenue"]) else 0,
                 "vote_average": (
                     row["vote_average"] if pd.notna(row["vote_average"]) else 0.0
                 ),
+                "popularity": int(row["popularity"]) if pd.notna(row["popularity"]) else 0.0,
+                "runtime": int(row["runtime"]) if pd.notna(row["runtime"]) else 0,
+                "year": int(row["year"]) if pd.notna(row["year"]) else 0,
                 "release_date": release_date,
             }
 
@@ -59,14 +65,20 @@ MAX_OBJECTS = 200000
 
 client = weaviate.connect_to_local()
 
+client.collections.delete(CollectionName.MOVIES)
+
 if not client.collections.exists(CollectionName.MOVIES):
     client.collections.create(
         name=CollectionName.MOVIES,
         properties=[
             Property(name="title", data_type=DataType.TEXT),
             Property(name="overview", data_type=DataType.TEXT),
+            Property(name="original_language", data_type=DataType.TEXT),
+            Property(name="tagline", data_type=DataType.TEXT),
+            Property(name="poster_path", data_type=DataType.TEXT),
             Property(name="genres", data_type=DataType.TEXT_ARRAY),
             Property(name="keywords", data_type=DataType.TEXT_ARRAY),
+            Property(name="recommendations", data_type=DataType.INT_ARRAY),
             Property(
                 name="credits",
                 data_type=DataType.TEXT_ARRAY,
@@ -76,6 +88,10 @@ if not client.collections.exists(CollectionName.MOVIES):
             Property(name="budget", data_type=DataType.INT),
             Property(name="revenue", data_type=DataType.INT),
             Property(name="vote_average", data_type=DataType.NUMBER),
+            Property(name="vote_count", data_type=DataType.INT),
+            Property(name="popularity", data_type=DataType.NUMBER),
+            Property(name="runtime", data_type=DataType.INT),
+            Property(name="year", data_type=DataType.INT),
             Property(name="release_date", data_type=DataType.DATE),
         ],
         # ================================================================================

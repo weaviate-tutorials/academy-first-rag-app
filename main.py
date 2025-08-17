@@ -149,12 +149,12 @@ async def get_movie_details(movie_id: str):
         with connect_to_weaviate() as client:
             movies = client.collections.get(CollectionName.MOVIES)
             movie = movies.query.fetch_objects(
-                filters=Filter.by_property("movie_id").equal(movie_id),
+                filters=Filter.by_property("movie_id").equal(int(movie_id)),
                 limit=1
             ).objects[0]
 
-            response = movies.query.near_object(near_object=movie.uuid, limit=PAGE_SIZE)
-            similar_movies = [o.properties for o in response.objects]
+            response = movies.query.near_object(near_object=movie.uuid, target_vector="default", limit=PAGE_SIZE)
+            similar_movies = [o.properties for o in response.objects[1:]]  # Exclude itself
 
         return MovieDetailResponse(
             movie=movie.properties, similar_movies=similar_movies
@@ -210,6 +210,7 @@ async def explore_movies(
 
             response = movies.query.hybrid(
                 query=genre,
+                target_vector="genres",
                 filters=year_filters,
                 limit=PAGE_SIZE,
             )

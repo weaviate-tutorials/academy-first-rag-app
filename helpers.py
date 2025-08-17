@@ -22,11 +22,20 @@ def connect_to_weaviate() -> WeaviateClient:
     return client
 
 
-def process_movie_categorical(raw_string: Union[str, None]) -> Union[list[str], None]:
+def process_str_categorical(raw_string: Union[str, None]) -> Union[list[str], None]:
     if raw_string == None:
         processed_data = None
     else:
         processed_data = raw_string.split("-")
+    return processed_data
+
+
+def process_int_categorical(raw_string: Union[str, None]) -> Union[list[int], None]:
+    if raw_string == None:
+        processed_data = None
+    else:
+        processed_data = raw_string.split("-")
+        processed_data = [int(i) for i in processed_data]
     return processed_data
 
 
@@ -43,9 +52,9 @@ def get_data_objects() -> Iterator[Dict[str, Union[datetime, str, int]]]:
         yield {
             "title": item["title"],
             "overview": item["overview"],
-            "genres": process_movie_categorical(item["genres"]),
-            "keywords": process_movie_categorical(item["keywords"]),
-            "credits": process_movie_categorical(item["credits"]),
+            "genres": process_str_categorical(item["genres"]),
+            "keywords": process_str_categorical(item["keywords"]),
+            "credits": process_str_categorical(item["credits"]),
             "movie_id": item["id"],
             "budget": int(item["budget"]),
             "revenue": int(item["revenue"]),

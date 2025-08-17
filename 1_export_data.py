@@ -1,6 +1,6 @@
 import weaviate
 import pandas as pd
-from ..helpers import CollectionName
+from helpers import CollectionName
 
 client = weaviate.connect_to_local()
 
