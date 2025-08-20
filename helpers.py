@@ -16,8 +16,9 @@ class CollectionName(str, Enum):
 
 
 def connect_to_weaviate() -> WeaviateClient:
-    client = weaviate.connect_to_local(
-        port=8080,
+    client = weaviate.connect_to_weaviate_cloud(
+        cluster_url=os.getenv("WCD_TEST_URL"),
+        auth_credentials=os.getenv("WCD_TEST_KEY")
     )
     return client
 

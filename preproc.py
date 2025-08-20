@@ -71,7 +71,7 @@ for year in sorted(df_top_by_year["year"].unique())[-5:]:  # Show first 5 years
         print(f"  - {movie['title']}: ${movie['revenue']:,}")
 
 # Export to multiple parquet files (10k objects each)
-chunk_size = 10000
+chunk_size = 5000
 num_chunks = len(df_top_by_year) // chunk_size + (
     1 if len(df_top_by_year) % chunk_size != 0 else 0
 )
@@ -83,7 +83,7 @@ for i in range(num_chunks):
     end_idx = min((i + 1) * chunk_size, len(df_top_by_year))
 
     chunk = df_top_by_year.iloc[start_idx:end_idx]
-    filename = f"data/movies_top1000_by_year_chunk_{i+1:02d}.parquet"
+    filename = f"data/movies_popular_{i+1:02d}.parquet"
 
     chunk.to_parquet(path=filename)
     print(f"Exported chunk {i+1}: {len(chunk)} objects to {filename}")
