@@ -55,11 +55,9 @@ class RecommendationResponse(BaseModel):
     occasion: str
 
 
-class StatsResponse(BaseModel):
+class InfoResponse(BaseModel):
     total_movies: int
-    movies_by_genres: Dict[str, int]
-    oldest_movie: Movie
-    most_recent_movie: Movie
+    sample_movies: List[Movie]
 
 
 @app.get("/")
@@ -69,19 +67,41 @@ async def root():
         "message": "MovieInsights API - Powered by Weaviate",
         "version": "1.0.0",
         "endpoints": [
+            "/info - Get basic information about the dataset",
             "/search - Search movies by text",
             "/movie/{movie_id} - Get movie details and similar movies",
             "/explore - Explore movies by genre and year",
             "/recommend - Get movie recommendations for occasions",
-            "/stats - Get dataset statistics",
         ],
     }
+
+
+@app.get("/info", response_model=InfoResponse)
+async def get_dataset_info():
+    """
+    Get basic information about the dataset
+    - Total movie count
+    - Some example movies
+    """
+    try:
+        # TODO: Students to implement:
+        # - Get total count
+        # - Fetch some (random) movies
+        with connect_to_weaviate() as client:
+            movies = client.collections.get(CollectionName.MOVIES)
+            total_count = len(movies)
+            sample_movies = movies.query.fetch_objects(limit=5).objects
+
+        return InfoResponse(total_movies=len(total_count), sample_movies=sample_movies)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @app.get("/search", response_model=SearchResponse)
 async def search_movies(
     q: str = Query(..., description="Search query for movies"),
-    page: int = Query(1, ge=1, le=3, description="Page number (1-3)"),
+    page: int = Query(1, ge=1, le=10, description="Page number (1-10)"),
     year_min: Optional[int] = Query(
         None, description="Filter by release year - from this year"
     ),
@@ -90,9 +110,9 @@ async def search_movies(
     ),
 ):
     """
-    Search for movies using hybrid search (vector + BM25)
-    - Returns 20 movies per page
-    - Supports up to 3 pages
+    Search for movies using hybrid search
+    - Return 20 movies per page
+    - Support pagination, up to 10 pages
     - Optional year filtering
     """
     try:
@@ -101,19 +121,14 @@ async def search_movies(
 
         filters = None
         if year_min and year_max:
-            filters = Filter.by_property("release_date").greater_or_equal(
-                datetime(year=year_min, month=1, day=1).replace(tzinfo=timezone.utc)
-            ) & Filter.by_property("release_date").less_or_equal(
-                datetime(year=year_max, month=12, day=31).replace(tzinfo=timezone.utc)
+            filters = (
+                Filter.by_property("year").greater_or_equal(year_min)
+                & Filter.by_property("year").less_or_equal(year_max)
             )
         elif year_min:
-            filters = Filter.by_property("release_date").greater_or_equal(
-                datetime(year=year_min, month=1, day=1).replace(tzinfo=timezone.utc)
-            )
+            filters = Filter.by_property("year").greater_or_equal(year_min)
         elif year_max:
-            filters = Filter.by_property("release_date").less_or_equal(
-                datetime(year=year_max, month=12, day=31).replace(tzinfo=timezone.utc)
-            )
+            filters = Filter.by_property("release_date").less_or_equal(year_max)
 
         with connect_to_weaviate() as client:
             movies = client.collections.get(CollectionName.MOVIES)
@@ -139,7 +154,7 @@ async def get_movie_details(movie_id: str):
     """
     Get detailed information about a specific movie, using the Weaviate object UUID
     - Returns movie metadata
-    - Returns top 15 most similar movies using NearObject search
+    - Returns top 15 most similar movies
     """
     try:
         # TODO: Students implement here
@@ -149,12 +164,15 @@ async def get_movie_details(movie_id: str):
         with connect_to_weaviate() as client:
             movies = client.collections.get(CollectionName.MOVIES)
             movie = movies.query.fetch_objects(
-                filters=Filter.by_property("movie_id").equal(int(movie_id)),
-                limit=1
+                filters=Filter.by_property("movie_id").equal(int(movie_id)), limit=1
             ).objects[0]
 
-            response = movies.query.near_object(near_object=movie.uuid, target_vector="default", limit=PAGE_SIZE)
-            similar_movies = [o.properties for o in response.objects[1:]]  # Exclude itself
+            response = movies.query.near_object(
+                near_object=movie.uuid, target_vector="default", limit=PAGE_SIZE
+            )
+            similar_movies = [
+                o.properties for o in response.objects[1:]
+            ]  # Exclude itself
 
         return MovieDetailResponse(
             movie=movie.properties, similar_movies=similar_movies
@@ -188,23 +206,14 @@ async def explore_movies(
             movies = client.collections.get(CollectionName.MOVIES)
 
             if year_min and year_max:
-                year_filters = Filter.by_property("release_date").greater_or_equal(
-                    datetime(year=year_min, month=1, day=1).replace(tzinfo=timezone.utc)
-                ) & Filter.by_property("release_date").less_or_equal(
-                    datetime(year=year_max, month=12, day=31).replace(
-                        tzinfo=timezone.utc
-                    )
+                year_filters = (
+                    Filter.by_property("year").greater_or_equal(year_min)
+                    & Filter.by_property("year").less_or_equal(year_max)
                 )
             elif year_min:
-                year_filters = Filter.by_property("release_date").greater_or_equal(
-                    datetime(year=year_min, month=1, day=1).replace(tzinfo=timezone.utc)
-                )
+                year_filters = Filter.by_property("year").greater_or_equal(year_min)
             elif year_max:
-                year_filters = Filter.by_property("release_date").less_or_equal(
-                    datetime(year=year_max, month=12, day=31).replace(
-                        tzinfo=timezone.utc
-                    )
-                )
+                year_filters = Filter.by_property("year").less_or_equal(year_max)
             else:
                 year_filters = None
 
@@ -214,7 +223,11 @@ async def explore_movies(
                 filters=year_filters,
                 limit=PAGE_SIZE,
             )
-            movies = sorted([o.properties for o in response.objects], key=lambda x: x["popularity"], reverse=True)
+            movies = sorted(
+                [o.properties for o in response.objects],
+                key=lambda x: x["popularity"],
+                reverse=True,
+            )
 
         return ExplorerResponse(
             movies=movies,
@@ -270,44 +283,6 @@ async def recommend_movie(
             recommendation=response.generative.text,
             query_string=query_string,
             movies_considered=[o.properties for o in response.objects],
-        )
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-
-@app.get("/stats", response_model=StatsResponse)
-async def get_dataset_stats():
-    """
-    Get dataset statistics
-    - Total movie count
-    - Count by year
-    """
-    try:
-        # TODO: Students to implement:
-        # - Use Weaviate aggregation queries
-        # - Get total count
-        # - Group by year for time-based analysis
-        with connect_to_weaviate() as client:
-            movies = client.collections.get(CollectionName.MOVIES)
-            total_count = len(movies)
-            movies_by_genres = movies.aggregate.over_all(
-                group_by=GroupByAggregate(prop="genres")
-            )
-            oldest_movie = movies.query.fetch_objects(
-                limit=1, sort=Sort.by_property("release_date", ascending=True)
-            ).objects[0]
-            latest_movie = movies.query.fetch_objects(
-                limit=1, sort=Sort.by_property("release_date", ascending=False)
-            ).objects[0]
-
-        return StatsResponse(
-            total_movies=len(total_count),
-            movies_by_genres=[
-                {g.grouped_by.value: g.total_count} for g in movies_by_genres.groups
-            ],
-            oldest_movie=oldest_movie,
-            latest_movie=latest_movie,
         )
 
     except Exception as e:
