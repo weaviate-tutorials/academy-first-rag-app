@@ -39,13 +39,17 @@ def get_data_objects_from_parquet() -> Iterator[Dict[str, Union[datetime, str, i
         # Process each row in the dataframe
         for _, row in df.iterrows():
             # Process fields using helper functions - only extract what's needed for the simplified Movie model
+            properties = row["properties"]
+            processed_properties = {
+                "movie_id": properties["movie_id"],
+                "title": properties["title"],
+                "overview": properties["overview"],
+                "genres": process_str_categorical(properties["genres"]),
+                "year": process_int_categorical(properties["year"]),
+            }
             yield {
-                "movie_id": row["properties"]["movie_id"],
-                "title": row["properties"]["title"],
-                "overview": row["properties"]["overview"],
-                "genres": process_str_categorical(row["properties"]["genres"]),
-                "year": process_int_categorical(row["properties"]["year"]),
-                "vectors": df["vectors"]
+                "properties": processed_properties,
+                "vectors": row["vectors"]
             }
 
 
@@ -133,9 +137,9 @@ def ingest_movies_data(client: WeaviateClient, max_objects=20000):
         for obj in tqdm(get_data_objects_from_parquet()):
             uuid = generate_uuid5(obj)
             batch.add_object(
-                properties=obj,
+                properties=obj["properties"],
                 uuid=uuid,
-                vector=object["vectors"]
+                vector=obj["vectors"]
             )
             counter += 1
 
