@@ -86,7 +86,8 @@ async def get_dataset_info():
         with connect_to_weaviate() as client:
             movies = client.collections.get(CollectionName.MOVIES)
             movies_count = len(movies)
-            sample_movies = movies.query.fetch_objects(limit=5).objects
+            sample_movies_response = movies.query.fetch_objects(limit=5).objects
+            sample_movies = [o.properties for o in sample_movies_response]
 
         return InfoResponse(movies_count=movies_count, sample_movies=sample_movies)
 
@@ -259,6 +260,7 @@ async def recommend_movie(
             movies = client.collections.get(CollectionName.MOVIES)
             response = movies.generate.near_text(
                 query=query_string,
+                target_vector="default",
                 limit=PAGE_SIZE,
                 grouped_task=f"""
                 The user is interested in movie recommendations for this occasion:
@@ -279,6 +281,7 @@ async def recommend_movie(
             recommendation=response.generative.text,
             query_string=query_string,
             movies_considered=[o.properties for o in response.objects],
+            occasion=occasion
         )
 
     except Exception as e:

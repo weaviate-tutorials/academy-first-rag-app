@@ -16,9 +16,16 @@ class CollectionName(str, Enum):
 
 
 def connect_to_weaviate() -> WeaviateClient:
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    if anthropic_key is None:
+        raise ValueError("You need a valid Anthropic api key for this application.")
+
     client = weaviate.connect_to_weaviate_cloud(
         cluster_url=os.getenv("WCD_TEST_URL"),
-        auth_credentials=os.getenv("WCD_TEST_KEY")
+        auth_credentials=os.getenv("WCD_TEST_KEY"),
+        headers={
+            "X-Anthropic-Api-Key": anthropic_key
+        }
     )
     return client
 
@@ -78,7 +85,7 @@ def call_claude(prompt: str) -> str:
         ],
         model="claude-3-5-haiku-latest",
     )
-    return message.content
+    return message.content[0].text
 
 
 def movie_occasion_to_query(occasion: str) -> str:

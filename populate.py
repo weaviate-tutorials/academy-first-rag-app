@@ -49,9 +49,7 @@ def get_data_objects_from_parquet() -> Iterator[Dict[str, Union[datetime, str, i
             }
             yield {
                 "properties": processed_properties,
-                "vectors": {
-                    k: list(v) for k, v in row["vectors"].items()
-                }
+                "vectors": row["vectors"]
             }
 
 
