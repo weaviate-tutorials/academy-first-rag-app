@@ -6,7 +6,7 @@ from weaviate import WeaviateClient
 from weaviate.util import generate_uuid5
 from weaviate.classes.config import Property, DataType, Configure
 from tqdm import tqdm
-from helpers import CollectionName, process_str_categorical, process_int_categorical, connect_to_weaviate
+from helpers import CollectionName, connect_to_weaviate
 
 
 def get_data_objects_from_parquet() -> Iterator[Dict[str, Union[datetime, str, int]]]:
@@ -22,7 +22,6 @@ def get_data_objects_from_parquet() -> Iterator[Dict[str, Union[datetime, str, i
     - Use glob.glob() to find files
     - Use pd.read_parquet() to load files
     - Process each row and handle missing values
-    - Use the process_str_categorical() and process_int_categorical() helper functions
     """
 
     # Find all parquet files in the data directory
@@ -44,12 +43,15 @@ def get_data_objects_from_parquet() -> Iterator[Dict[str, Union[datetime, str, i
                 "movie_id": properties["movie_id"],
                 "title": properties["title"],
                 "overview": properties["overview"],
-                "genres": process_str_categorical(properties["genres"]),
-                "year": process_int_categorical(properties["year"]),
+                "genres": None if properties["genres"] is None else list(properties["genres"]),
+                "year": properties["year"],
+                "popularity": properties["popularity"]
             }
             yield {
                 "properties": processed_properties,
-                "vectors": row["vectors"]
+                "vectors": {
+                    k: list(v) for k, v in row["vectors"].items()
+                }
             }
 
 
@@ -85,6 +87,7 @@ def create_movies_collection(client: WeaviateClient):
                 Property(name="overview", data_type=DataType.TEXT),
                 Property(name="genres", data_type=DataType.TEXT_ARRAY),
                 Property(name="year", data_type=DataType.INT),
+                Property(name="popularity", data_type=DataType.NUMBER),
             ],
             vector_config=[
                 Configure.Vectors.text2vec_weaviate(
@@ -105,7 +108,7 @@ def create_movies_collection(client: WeaviateClient):
         raise RuntimeError(
             "Collection 'Movies' already exists! "
             "If you like to re-build the collection, create and run a separate script to delete the existing collection. "
-            "The syntax is: client.collections.delete(CollectionName.MOVIES)"
+            "\n\nTo delete a collection, run: client.collections.delete(<collection_name>)"
         )
 
 

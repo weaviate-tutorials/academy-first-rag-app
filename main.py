@@ -23,6 +23,7 @@ class Movie(BaseModel):
     title: str
     overview: Optional[str] = None
     genres: Optional[List[str]] = None
+    popularity: float
     year: int
 
 
