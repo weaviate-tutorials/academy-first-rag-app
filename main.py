@@ -23,12 +23,7 @@ class Movie(BaseModel):
     title: str
     overview: Optional[str] = None
     genres: Optional[List[str]] = None
-    keywords: Optional[List[str]] = None
-    credits: Optional[List[str]] = None
-    budget: int
-    revenue: int
-    vote_average: float
-    release_date: Optional[datetime] = None
+    year: int
 
 
 class SearchResponse(BaseModel):
@@ -128,7 +123,7 @@ async def search_movies(
         elif year_min:
             filters = Filter.by_property("year").greater_or_equal(year_min)
         elif year_max:
-            filters = Filter.by_property("release_date").less_or_equal(year_max)
+            filters = Filter.by_property("year").less_or_equal(year_max)
 
         with connect_to_weaviate() as client:
             movies = client.collections.get(CollectionName.MOVIES)
