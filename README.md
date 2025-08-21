@@ -13,6 +13,10 @@ You are building an application for MovieInsights, a platform that helps movie e
 - Provide statistics on the dataset
     - Total object count; count by year
 
+### Dataset
+
+The application uses a curated movie dataset containing just under 20,00 movies.
+
 ### Learning objectives
 
 You will learn how to connect a FastAPI app to Weaviate to:
@@ -22,10 +26,16 @@ You will learn how to connect a FastAPI app to Weaviate to:
     - With filtering
 - View individual object data
     - Perform a NearObject search
-- Sort filtered data
 - Perform retrieval augmented generation
-- Aggregate data
+- Manage Weaviate collections
+    - Create collections with vector configurations
+    - Delete and rebuild collections
+    - Handle batch data ingestion
 
 ### Project outline
 
-You will be given a skeleton FastAPI-based application,
+You will be given a skeleton FastAPI-based application, along with scripts to:
+
+- **Populate collection** (`populate.py`): Add movie data to the Weaviate collection
+- **Delete collection** (`delete_collection.py`): Remove the collection when needed
+- **Main application** (`main.py`): FastAPI app with endpoints for search, recommendations, and exploration
