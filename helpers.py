@@ -21,8 +21,8 @@ def connect_to_weaviate() -> WeaviateClient:
         raise ValueError("You need a valid Anthropic api key for this application.")
 
     client = weaviate.connect_to_weaviate_cloud(
-        cluster_url=os.getenv("WCD_TEST_URL"),
-        auth_credentials=os.getenv("WCD_TEST_KEY"),
+        cluster_url=os.getenv("WCD_STUDENT_URL"),
+        auth_credentials=os.getenv("WCD_STUDENT_KEY"),
         headers={
             "X-Anthropic-Api-Key": anthropic_key
         }

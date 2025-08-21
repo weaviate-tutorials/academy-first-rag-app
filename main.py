@@ -55,7 +55,7 @@ class InfoResponse(BaseModel):
 
 
 @app.get("/")
-async def root():
+def root():
     """Root endpoint with API information"""
     return {
         "message": "MovieInsights API - Powered by Weaviate",
@@ -71,7 +71,7 @@ async def root():
 
 
 @app.get("/info", response_model=InfoResponse)
-async def get_dataset_info():
+def get_dataset_info():
     """
     Get basic information about the dataset
     - Total movie count
@@ -92,7 +92,7 @@ async def get_dataset_info():
 
 
 @app.get("/search", response_model=SearchResponse)
-async def search_movies(
+def search_movies(
     q: str = Query(..., description="Search query for movies"),
     page: int = Query(1, ge=1, le=10, description="Page number (1-10)"),
     year_min: Optional[int] = Query(
@@ -139,7 +139,7 @@ async def search_movies(
 
 
 @app.get("/movie/{movie_id}", response_model=MovieDetailResponse)
-async def get_movie_details(movie_id: str):
+def get_movie_details(movie_id: str):
     """
     Get detailed information about a specific movie, using the Weaviate object UUID
     - Returns movie metadata
@@ -164,7 +164,7 @@ async def get_movie_details(movie_id: str):
 
 
 @app.get("/explore", response_model=ExplorerResponse)
-async def explore_movies(
+def explore_movies(
     genre: str = Query(..., description="Movie genre to explore"),
     year_min: Optional[int] = Query(
         None, description="Filter by release year - from this year"
@@ -181,7 +181,7 @@ async def explore_movies(
     """
     try:
         with connect_to_weaviate() as client:
-            movies = client.collections.get(CollectionName.MOVIES)
+            movies = client.collections.use(CollectionName.MOVIES)
 
             # Student TODO:
             # Build filters (`filters`) just like we did for `search_movies` above
@@ -209,7 +209,7 @@ async def explore_movies(
 
 
 @app.get("/recommend", response_model=RecommendationResponse)
-async def recommend_movie(
+def recommend_movie(
     occasion: str = Query(
         ..., description="Viewing occasion (e.g., 'date night', 'family movie')"
     )
@@ -235,7 +235,7 @@ async def recommend_movie(
         """
 
         with connect_to_weaviate() as client:
-            movies = client.collections.get(CollectionName.MOVIES)
+            movies = client.collections.use(CollectionName.MOVIES)
             # Student TODO:
             # Perform a RAG query (near_text) for the given query, using `full_task_prompt` constructed above.
             # Target `default` vector, and limit to PAGE_SIZE results
