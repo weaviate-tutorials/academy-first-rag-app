@@ -266,7 +266,7 @@ async def recommend_movie(
                 {occasion}
                 ========== END INPUT ==========
 
-                Out of these movies, what would you recommend and why?
+                Out of these movies, recommend 2-4 suitable movies, and describe why, so the user can choose for themselves.
 
                 IMPORTANT: Only include the recommendation text in your response and nothing else.
                 """,
