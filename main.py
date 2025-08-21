@@ -78,13 +78,15 @@ async def get_dataset_info():
     - Some example movies
     """
     try:
-        # TODO: Students to implement:
-        # - Get total count
-        # - Fetch some (random) movies
         with connect_to_weaviate() as client:
+            # Student TODO:
+            # - Get total count
+            # - Fetch some movies
+            # START_SOLUTION
             movies = client.collections.get(CollectionName.MOVIES)
             movies_count = len(movies)
             sample_movies_response = movies.query.fetch_objects(limit=5).objects
+            # END_SOLUTION
             sample_movies = [o.properties for o in sample_movies_response]
 
         return InfoResponse(movies_count=movies_count, sample_movies=sample_movies)
@@ -116,16 +118,29 @@ async def search_movies(
 
         filters = None
         if year_min and year_max:
+            # Student TODO:
+            # Build a filter (`filters`) where `year` is greater than or equal to `year_min`, and less than or equal to `year_max`
+            # START_SOLUTION
             filters = (
                 Filter.by_property("year").greater_or_equal(year_min)
                 & Filter.by_property("year").less_or_equal(year_max)
             )
+            # END_SOLUTION
         elif year_min:
+            # Student TODO: Build a filter (`filters`) where `year` is greater than or equal to `year_min`
+            # START_SOLUTION
             filters = Filter.by_property("year").greater_or_equal(year_min)
+            # END_SOLUTION
         elif year_max:
+            # Student TODO: Build a filter (`filters`) where `year` is less than or equal to `year_max`
+            # START_SOLUTION
             filters = Filter.by_property("year").less_or_equal(year_max)
+            # END_SOLUTION
 
         with connect_to_weaviate() as client:
+            # Student TODO: Perform a hybrid search, with:
+            # Query: q, offset: offset, limit: PAGE_SIZE, filters= filters, target "default" vector
+            # START_SOLUTION
             movies = client.collections.get(CollectionName.MOVIES)
             response = movies.query.hybrid(
                 query=q,
@@ -134,6 +149,7 @@ async def search_movies(
                 filters=filters,
                 target_vector="default",
             )
+            # END_SOLUTION
 
             return SearchResponse(
                 movies=[o.properties for o in response.objects],
@@ -152,11 +168,11 @@ async def get_movie_details(movie_id: str):
     - Returns top 15 most similar movies
     """
     try:
-        # TODO: Students implement here
-        # - Fetch movie by ID from Weaviate
-        # - Use nearObject search to find similar movies
-        # - Limit to top n results
         with connect_to_weaviate() as client:
+            # Student TODO:
+            # - Fetch movie by ID from Weaviate (the `movie_id` property should be `int(movie_id)` exactly)
+            # - Use the retuend object's UUID to find PAGE_SIZE number of similar movies
+            # START_SOLUTION
             movies = client.collections.get(CollectionName.MOVIES)
             movie = movies.query.fetch_objects(
                 filters=Filter.by_property("movie_id").equal(int(movie_id)), limit=1
@@ -165,9 +181,10 @@ async def get_movie_details(movie_id: str):
             response = movies.query.near_object(
                 near_object=movie.uuid, target_vector="default", limit=PAGE_SIZE
             )
+            # END_SOLUTION
             similar_movies = [
-                o.properties for o in response.objects[1:]
-            ]  # Exclude itself
+                o.properties for o in response.objects[1:]  # Exclude itself
+            ]
 
         return MovieDetailResponse(
             movie=movie.properties, similar_movies=similar_movies
@@ -194,30 +211,36 @@ async def explore_movies(
     - Sorted by popularity/rating
     """
     try:
-        # TODO: Students implement here
-        # - Filter by genre and year using Weaviate filters
-        # - Sort by popularity/rating
         with connect_to_weaviate() as client:
             movies = client.collections.get(CollectionName.MOVIES)
 
+            # Student TODO:
+            # Build filters (`filters`) just like we did for `search_movies` above
+            # START_SOLUTION
             if year_min and year_max:
-                year_filters = (
+                filters = (
                     Filter.by_property("year").greater_or_equal(year_min)
                     & Filter.by_property("year").less_or_equal(year_max)
                 )
             elif year_min:
-                year_filters = Filter.by_property("year").greater_or_equal(year_min)
+                filters = Filter.by_property("year").greater_or_equal(year_min)
             elif year_max:
-                year_filters = Filter.by_property("year").less_or_equal(year_max)
+                filters = Filter.by_property("year").less_or_equal(year_max)
             else:
-                year_filters = None
+                filters = None
+            # END_SOLUTION
 
+            # Student TODO:
+            # Perform a hybrid search for the given genres.
+            # Target `genres` vector, apply the filters, and limit to PAGE_SIZE results
+            # START_SOLUTION
             response = movies.query.hybrid(
                 query=genre,
                 target_vector="genres",
-                filters=year_filters,
+                filters=filters,
                 limit=PAGE_SIZE,
             )
+            # END_SOLUTION
             movies = sorted(
                 [o.properties for o in response.objects],
                 key=lambda x: x["popularity"],
@@ -248,32 +271,36 @@ async def recommend_movie(
     - Returns best match with reasoning
     """
     try:
-        # TODO: Students implement here
-        # - Convert occasion text to embedding
-        # - Perform semantic search against movie plots/descriptions
-        # - Return best match with explanation
         query_string = movie_occasion_to_query(occasion=occasion)
+
+        full_task_prompt = f"""
+        The user is interested in movie recommendations for this occasion:
+        ========== OCCASION INPUT FROM USER ==========
+        {occasion}
+        ========== END INPUT ==========
+
+        Out of these movies, recommend 2-4 suitable movies, and describe why, so the user can choose for themselves.
+
+        IMPORTANT: Only include the recommendation text in your response and nothing else.
+        """
 
         with connect_to_weaviate() as client:
             movies = client.collections.get(CollectionName.MOVIES)
+            # Student TODO:
+            # Perform a RAG query (near_text) for the given query, using `full_task_prompt` constructed above.
+            # Target `default` vector, and limit to PAGE_SIZE results
+            # Specify `anthropic` as the generative provider, and `claude-3-5-haiku-latest` as the model
+            # START_SOLUTION
             response = movies.generate.near_text(
                 query=query_string,
                 target_vector="default",
                 limit=PAGE_SIZE,
-                grouped_task=f"""
-                The user is interested in movie recommendations for this occasion:
-                ========== OCCASION INPUT FROM USER ==========
-                {occasion}
-                ========== END INPUT ==========
-
-                Out of these movies, recommend 2-4 suitable movies, and describe why, so the user can choose for themselves.
-
-                IMPORTANT: Only include the recommendation text in your response and nothing else.
-                """,
+                grouped_task=full_task_prompt,
                 generative_provider=GenerativeConfig.anthropic(
                     model="claude-3-5-haiku-latest"
                 ),
             )
+            # END_SOLUTION
 
         return RecommendationResponse(
             recommendation=response.generative.text,

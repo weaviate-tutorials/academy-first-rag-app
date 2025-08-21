@@ -24,10 +24,15 @@ def delete_movies_collection():
         with connect_to_weaviate() as client:
             print("✅ Connected successfully!")
 
-            # Check if collection exists
+            # STUDENT TODO - Check if collection exists
+            # START_SOLUTION
             if client.collections.exists(CollectionName.MOVIES):
+            # END_SOLUTION
                 print(f"📚 Found collection: {CollectionName.MOVIES}")
+                # STUDENT TODO - print the collection size
+                # START_SOLUTION
                 print(f"📊 Collection size: {len(client.collections.get(CollectionName.MOVIES))} objects")
+                # END_SOLUTION
                 print()
 
                 # Confirm deletion
@@ -39,7 +44,10 @@ def delete_movies_collection():
 
                 if confirm == "DELETE":
                     print("🗑️  Deleting collection...")
+                    # STUDENT TODO - delete the collection
+                    # START_SOLUTION
                     client.collections.delete(CollectionName.MOVIES)
+                    # END_SOLUTION
                     print("✅ Collection deleted successfully!")
                     print()
                     print("💡 You can now run populate.py to recreate the collection.")

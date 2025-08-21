@@ -62,20 +62,23 @@ def create_movies_collection(client: WeaviateClient):
     2. If not, create it with the proper schema
     3. Include vector configurations for text embeddings
 
-    The collection should have these properties (only those used in main.py):
+    The collection should have these properties:
     - movie_id (INT)
     - title (TEXT)
     - overview (TEXT)
     - genres (TEXT_ARRAY)
     - year (INT)
+    - popularity (NUMBER)
 
     Vector configurations:
-    - "default" vector: uses title and overview fields
-    - "genres" vector: uses genres field
+    - "default" vector: uses title and overview property
+    - "genres" vector: uses genres property
     - Use the Snowflake/snowflake-arctic-embed-l-v2.0 model
     """
 
-    # Check if collection exists
+    # STUDENT TODO - implement the above
+    # `if not ...`
+    # START_SOLUTION
     if not client.collections.exists(CollectionName.MOVIES):
         client.collections.create(
             name=CollectionName.MOVIES,
@@ -92,16 +95,15 @@ def create_movies_collection(client: WeaviateClient):
                     name="default",
                     source_properties=["title", "overview"],
                     model="Snowflake/snowflake-arctic-embed-l-v2.0",
-                    quantizer=Configure.VectorIndex.Quantizer.rq(),
                 ),
                 Configure.Vectors.text2vec_weaviate(
                     name="genres",
                     source_properties=["genres"],
                     model="Snowflake/snowflake-arctic-embed-l-v2.0",
-                    quantizer=Configure.VectorIndex.Quantizer.rq(),
                 ),
             ],
         )
+    # END_SOLUTION
     else:
         raise RuntimeError(
             "Collection 'Movies' already exists! "
@@ -127,29 +129,40 @@ def ingest_movies_data(client: WeaviateClient, max_objects=20000):
     - Use tqdm for progress tracking
     """
 
-    # Get the Movies collection
+    # STUDENT TODO - Get the Movies collection
+    # START_SOLUTION
     movies = client.collections.get(CollectionName.MOVIES)
+    # END_SOLUTION
 
-    # Set up batch processing
-    counter = 0
+    # STUDENT TODO - Batch import with context manager, with fixed size & size 100
+    # `with ... as batch`
+    # START_SOLUTION
     with movies.batch.fixed_size(batch_size=200) as batch:
+    # END_SOLUTION
 
         # Process each movie object
         for obj in tqdm(get_data_objects_from_parquet()):
+            # STUDENT TODO - Add object to batch, and pass data from `obj`:
+            # - Properties `obj["properties"]`
+            # - UUID `uuid`
+            # - Vectors `obj["vectors"]`
             uuid = generate_uuid5(obj)
+            # START_SOLUTION
             batch.add_object(
                 properties=obj["properties"],
                 uuid=uuid,
                 vector=obj["vectors"]
             )
-            counter += 1
+            # END_SOLUTION
 
-            if counter >= max_objects:
-                break
-
-    # Handle any failed objects
+    # TODO - Handle any failed objects
+    # Check if there are any failed objects, and display the first few if so
+    # START_SOLUTION
     if len(movies.batch.failed_objects) > 0:
         print(f"Failed to add {len(movies.batch.failed_objects)} objects")
+        for failed_obj in movies.batch.failed_objects[:3]:
+            print(failed_obj)
+    # END_SOLUTION
 
     # Print final count
     print(f"Successfully added {len(movies)} movies")
