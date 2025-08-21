@@ -56,7 +56,7 @@ class RecommendationResponse(BaseModel):
 
 
 class InfoResponse(BaseModel):
-    total_movies: int
+    movies_count: int
     sample_movies: List[Movie]
 
 
@@ -89,10 +89,10 @@ async def get_dataset_info():
         # - Fetch some (random) movies
         with connect_to_weaviate() as client:
             movies = client.collections.get(CollectionName.MOVIES)
-            total_count = len(movies)
+            movies_count = len(movies)
             sample_movies = movies.query.fetch_objects(limit=5).objects
 
-        return InfoResponse(total_movies=len(total_count), sample_movies=sample_movies)
+        return InfoResponse(movies_count=movies_count, sample_movies=sample_movies)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
