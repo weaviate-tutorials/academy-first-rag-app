@@ -1,9 +1,7 @@
 from fastapi import FastAPI, HTTPException, Query
-from typing import Optional, List, Dict
+from typing import Optional
 from pydantic import BaseModel
-from weaviate.classes.query import Filter, GenerativeConfig, Sort
-from weaviate.classes.aggregate import GroupByAggregate
-from datetime import datetime, timezone
+from weaviate.classes.query import Filter, GenerativeConfig
 from helpers import connect_to_weaviate, CollectionName, movie_occasion_to_query
 import uvicorn
 
@@ -22,23 +20,23 @@ class Movie(BaseModel):
     movie_id: int
     title: str
     overview: Optional[str] = None
-    genres: Optional[List[str]] = None
+    genres: Optional[list[str]] = None
     popularity: float
     year: int
 
 
 class SearchResponse(BaseModel):
-    movies: List[Movie]
+    movies: list[Movie]
     current_page: int
 
 
 class MovieDetailResponse(BaseModel):
     movie: Movie
-    similar_movies: List[Movie]
+    similar_movies: list[Movie]
 
 
 class ExplorerResponse(BaseModel):
-    movies: List[Movie]
+    movies: list[Movie]
     genre: str
     year_min: Optional[int]
     year_max: Optional[int]
@@ -47,13 +45,13 @@ class ExplorerResponse(BaseModel):
 class RecommendationResponse(BaseModel):
     recommendation: str
     query_string: str
-    movies_considered: List[Movie]
+    movies_considered: list[Movie]
     occasion: str
 
 
 class InfoResponse(BaseModel):
     movies_count: int
-    sample_movies: List[Movie]
+    sample_movies: list[Movie]
 
 
 @app.get("/")
