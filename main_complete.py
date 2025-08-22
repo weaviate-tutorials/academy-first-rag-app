@@ -151,10 +151,10 @@ def search_movies(
             )
             # END_SOLUTION
 
-            return SearchResponse(
-                movies=[o.properties for o in response.objects],
-                current_page=page,
-            )
+        return SearchResponse(
+            movies=[o.properties for o in response.objects],
+            current_page=page,
+        )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
@@ -241,14 +241,14 @@ def explore_movies(
                 limit=PAGE_SIZE,
             )
             # END_SOLUTION
-            movies = sorted(
+            sorted_movies = sorted(
                 [o.properties for o in response.objects],
                 key=lambda x: x["popularity"],
                 reverse=True,
             )
 
         return ExplorerResponse(
-            movies=movies,
+            movies=sorted_movies,
             genre=genre,
             year_min=year_min,
             year_max=year_max,

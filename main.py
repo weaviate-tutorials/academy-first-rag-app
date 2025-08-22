@@ -129,10 +129,10 @@ def search_movies(
             # Query: q, offset: offset, limit: PAGE_SIZE, filters= filters, target "default" vector
             # Write your code here according to the instructions
 
-            return SearchResponse(
-                movies=[o.properties for o in response.objects],
-                current_page=page,
-            )
+        return SearchResponse(
+            movies=[o.properties for o in response.objects],
+            current_page=page,
+        )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
@@ -191,14 +191,14 @@ def explore_movies(
             # Perform a hybrid search for the given genres.
             # Target `genres` vector, apply the filters, and limit to PAGE_SIZE results
             # Write your code here according to the instructions
-            movies = sorted(
+            sorted_movies = sorted(
                 [o.properties for o in response.objects],
                 key=lambda x: x["popularity"],
                 reverse=True,
             )
 
         return ExplorerResponse(
-            movies=movies,
+            movies=sorted_movies,
             genre=genre,
             year_min=year_min,
             year_max=year_max,
