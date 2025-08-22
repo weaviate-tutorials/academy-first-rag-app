@@ -71,6 +71,7 @@ def create_movies_collection(client: WeaviateClient):
     - popularity (NUMBER)
 
     Vector configurations:
+    - Use the `text2vec_weaviate` model integration.
     - "default" vector: uses title and overview property
     - "genres" vector: uses genres property
     - Use the Snowflake/snowflake-arctic-embed-l-v2.0 model
